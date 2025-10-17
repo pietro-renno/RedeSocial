@@ -184,17 +184,27 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    if (notificationsBell) {
-        notificationsBell.addEventListener('click', (e) => {
-            e.preventDefault();
-            const dropdown = document.getElementById('notifications-dropdown-content');
-            const isVisible = dropdown.style.display === 'block';
-            dropdown.style.display = isVisible ? 'none' : 'block';
-            if (!isVisible) {
-                fetchNotifications();
+if (notificationsBell) {
+    notificationsBell.addEventListener('click', (e) => {
+        e.preventDefault();
+        const dropdown = document.getElementById('notifications-dropdown-content');
+        const isVisible = dropdown.style.display === 'block';
+        dropdown.style.display = isVisible ? 'none' : 'block';
+        if (!isVisible) {
+            fetchNotifications(); // Chama as notificações quando abre
+        }
+    });
+
+    // Adiciona a lógica para fechar o dropdown ao clicar fora
+    window.addEventListener('click', function(e) {
+        // Verifica se o clique não foi no sino de notificações OU dentro do dropdown
+        if (!e.target.closest('#notifications-bell') && !e.target.closest('#notifications-dropdown-content')) {
+            if (notificationsDropdown.style.display === 'block') {
+                notificationsDropdown.style.display = 'none';
             }
-        });
-    }
+        }
+    });
+}
 
     // Fetch inicial de notificações para contagem
     fetchNotifications();
