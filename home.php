@@ -11,13 +11,31 @@ $erro_post = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['conteudo'])) {
     $conteudo = trim($_POST['conteudo']);
     $id_usuario = $_SESSION['user_id'];
+    $imagem_path = null;
 
-    if (empty($conteudo)) {
+    // Processa upload de imagem, se houver
+    if (isset($_FILES['imagem']) && $_FILES['imagem']['error'] == UPLOAD_ERR_OK) {
+        $ext = strtolower(pathinfo($_FILES['imagem']['name'], PATHINFO_EXTENSION));
+        $permitidas = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        if (in_array($ext, $permitidas)) {
+            $nome_arquivo = uniqid('img_') . '.' . $ext;
+            $destino = 'uploads/' . $nome_arquivo;
+            if (move_uploaded_file($_FILES['imagem']['tmp_name'], $destino)) {
+                $imagem_path = $destino;
+            } else {
+                $erro_post = "Erro ao salvar a imagem.";
+            }
+        } else {
+            $erro_post = "Formato de imagem não permitido.";
+        }
+    }
+
+    if (empty($conteudo) && !$imagem_path) {
         $erro_post = "Você não pode criar uma postagem vazia.";
-    } else {
-        $sql = "INSERT INTO postagens (id_usuario, conteudo) VALUES (?, ?)";
+    } elseif (!$erro_post) {
+        $sql = "INSERT INTO postagens (id_usuario, conteudo, imagem) VALUES (?, ?, ?)";
         $stmt = $mysqli->prepare($sql);
-        $stmt->bind_param("is", $id_usuario, $conteudo);
+        $stmt->bind_param("iss", $id_usuario, $conteudo, $imagem_path);
 
         if ($stmt->execute()) {
             
@@ -32,6 +50,7 @@ $sql_select = "SELECT
                     p.id,
                     p.id_usuario, 
                     p.conteudo, 
+                    p.imagem,
                     p.data_postagem, 
                     u.nome,
                     u.foto_perfil,
@@ -95,8 +114,9 @@ $resultado_posts = $mysqli->query($sql_select);
             <section class="feed-central-column">
                 <div class="post-create-card">
                     <h2>Criar Nova Publicação</h2>
-                    <form action="" method="POST" class="post-form">
+                    <form action="" method="POST" class="post-form" enctype="multipart/form-data">
                         <textarea name="conteudo" placeholder="No que você está pensando, <?php echo htmlspecialchars($_SESSION['user_name']); ?>?" class="post-textarea"></textarea>
+                        <input type="file" name="imagem" accept="image/*" style="margin-top:10px;">
                         <?php if ($erro_post): ?>
                             <p class="error-message"><?php echo $erro_post; ?></p>
                         <?php endif; ?>
@@ -123,8 +143,9 @@ $resultado_posts = $mysqli->query($sql_select);
                                 </div>
                                 <div class="post-body">
                                     <p><?php echo nl2br(htmlspecialchars($post['conteudo'])); ?></p>
-                                    <!-- Aqui você pode adicionar uma imagem de postagem se houver -->
-                                    <!-- <img src="caminho/para/imagem_do_post.jpg" alt="Imagem do Post" class="post-image"> -->
+                                    <?php if (!empty($post['imagem'])): ?>
+                                        <img src="<?php echo htmlspecialchars($post['imagem']); ?>" alt="Imagem do Post" class="post-image" style="margin-top:10px;max-width:100%;border-radius:8px;">
+                                    <?php endif; ?>
                                 </div>
                                 <div class="post-actions">
                                     <button class="action-btn like-btn" data-post-id="<?php echo $post['id']; ?>">
