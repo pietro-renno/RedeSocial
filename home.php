@@ -34,6 +34,7 @@ $sql_select = "SELECT
                     p.conteudo, 
                     p.data_postagem, 
                     u.nome,
+                    u.foto_perfil,
                     (SELECT COUNT(*) FROM curtidas WHERE id_postagem = p.id) as total_curtidas
                 FROM postagens p
                 JOIN usuarios u ON p.id_usuario = u.id
@@ -107,10 +108,13 @@ $resultado_posts = $mysqli->query($sql_select);
                     <h2>Últimas Postagens</h2>
                     <?php if ($resultado_posts && $resultado_posts->num_rows > 0): ?>
                         <?php while($post = $resultado_posts->fetch_assoc()): ?>
+                            <?php
+                                $fotoPerfil = !empty($post['foto_perfil']) ? $post['foto_perfil'] : 'https://via.placeholder.com/32/0095f6/ffffff?text=U';
+                            ?>
                             <div class="post-card" id="post-<?php echo $post['id']; ?>">
                                 <div class="post-header">
                                     <div class="post-user-info">
-                                        <img src="https://via.placeholder.com/32/0095f6/ffffff?text=U" alt="Foto de Perfil" class="profile-picture-small">
+                                        <img src="<?php echo htmlspecialchars($fotoPerfil); ?>" alt="Foto de Perfil" class="profile-picture-small">
                                         <a href="profile.php?id=<?php echo $post['id_usuario']; ?>" class="post-username">
                                             <strong><?php echo htmlspecialchars($post['nome']); ?></strong>
                                         </a>
