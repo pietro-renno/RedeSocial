@@ -25,7 +25,7 @@ if (!$user_info) {
 
 if ($view === 'saved' && $is_own_profile) {
     // Query para buscar posts favoritados
-    $sql_posts = "SELECT p.id, p.conteudo, p.data_postagem, 
+    $sql_posts = "SELECT p.id, p.conteudo, p.imagem, p.data_postagem, 
                   (SELECT COUNT(*) FROM curtidas WHERE id_postagem = p.id) as total_curtidas,
                   (SELECT COUNT(*) FROM respostas WHERE id_postagem = p.id) as total_comentarios
                   FROM postagens p
@@ -34,7 +34,7 @@ if ($view === 'saved' && $is_own_profile) {
                   ORDER BY f.data_favorito DESC";
 } else {
     // Query original para buscar posts do usuário
-    $sql_posts = "SELECT id, conteudo, data_postagem,
+    $sql_posts = "SELECT id, conteudo, imagem, data_postagem,
                   (SELECT COUNT(*) FROM curtidas WHERE id_postagem = p.id) as total_curtidas,
                   (SELECT COUNT(*) FROM respostas WHERE id_postagem = p.id) as total_comentarios
                   FROM postagens p WHERE id_usuario = ? ORDER BY data_postagem DESC";
@@ -49,7 +49,7 @@ $result_posts = $stmt_posts->get_result();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Perfil de <?php echo htmlspecialchars($user_info['nome']); ?> - deepBlue</title>
+    <title>Perfil de <?php echo htmlspecialchars($user_info['nome']); ?> - helveticNDS</title>
     <link rel="stylesheet" href="style.css">
     <!-- Ícones Font Awesome para um visual mais moderno -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -63,14 +63,13 @@ $result_posts = $stmt_posts->get_result();
             <div class="navbar-right">
                 <ul class="nav-links">
                     <li><span class="welcome-message">Olá, <?php echo htmlspecialchars($_SESSION['user_name']); ?>!</span></li>
-                    <li><a href="home.php" class="nav-icon-link"><i class="fas fa-home"></i> Feed</a></li>
-                    <li><a href="profile.php" class="nav-icon-link active"><i class="fas fa-user"></i> Meu Perfil</a></li>
-                    <li class="notifications-dropdown">
+                    <li><a href="profile.php" class="nav-icon-link"><i class="fas fa-user"></i> Meu Perfil</a></li>
+                    <li style="position:relative;">
                         <a href="#" id="notifications-bell" class="nav-icon-link">
-                            <i class="fas fa-bell"></i> Notificações <span id="notifications-count" class="notification-badge">0</span>
+                            <i class="fas fa-bell"></i> Notificações <span id="notifications-count" class="notification-badge">!</span>
                         </a>
-                        <div id="notifications-dropdown-content" class="dropdown-content">
-                            <p class="dropdown-empty-message">Nenhuma notificação nova.</p>
+                        <div id="notifications-dropdown-content">
+                            <div id="notifications-list" style="padding:10px 0;text-align:center;color:#888;">Carregando...</div>
                         </div>
                     </li>
                     <li><a href="chat.php" class="nav-icon-link"><i class="fas fa-comment"></i> Chat</a></li>
@@ -133,12 +132,14 @@ $result_posts = $stmt_posts->get_result();
                                     <span><i class="fas fa-comment"></i> <?php echo $post['total_comentarios'] ?? 0; ?></span>
                                 </div>
                             </div>
-                            <!-- Se o post tiver imagem, exiba aqui. Caso contrário, use uma cor de background ou placeholder. -->
-                            <!-- Apenas para demonstração, usei um div simples. Você deve usar uma imagem do post. -->
-                            <div class="post-content-placeholder">
-                                <p><?php echo nl2br(htmlspecialchars(substr($post['conteudo'], 0, 100))) . (strlen($post['conteudo']) > 100 ? '...' : ''); ?></p>
-                                <small class="post-timestamp-grid"><?php echo date('d/m/Y H:i', strtotime($post['data_postagem'])); ?></small>
-                            </div>
+                            <?php if (!empty($post['imagem'])): ?>
+                                <img src="<?php echo htmlspecialchars($post['imagem']); ?>" alt="Imagem do Post" style="width:100%;height:100%;object-fit:cover;">
+                            <?php else: ?>
+                                <div class="post-content-placeholder">
+                                    <p><?php echo nl2br(htmlspecialchars(substr($post['conteudo'], 0, 100))) . (strlen($post['conteudo']) > 100 ? '...' : ''); ?></p>
+                                    <small class="post-timestamp-grid"><?php echo date('d/m/Y H:i', strtotime($post['data_postagem'])); ?></small>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     <?php endwhile; ?>
                 <?php else: ?>
@@ -163,23 +164,39 @@ $result_posts = $stmt_posts->get_result();
 
     <script src="script.js"></script>
     <script>
-        // JS para toggle de dropdowns ou outras interações
-        document.addEventListener('DOMContentLoaded', function() {
-            // Lógica para dropdown de notificações (reuso do home.php)
-            document.getElementById('notifications-bell').addEventListener('click', function(e) {
-                e.preventDefault();
-                const dropdown = document.getElementById('notifications-dropdown-content');
-                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-            });
-            window.addEventListener('click', function(e) {
-                if (!e.target.matches('#notifications-bell') && !e.target.matches('#notifications-bell *')) {
-                    const dropdown = document.getElementById('notifications-dropdown-content');
-                    if (dropdown && dropdown.style.display === 'block') {
-                        dropdown.style.display = 'none';
-                    }
-                }
-            });
+document.addEventListener('DOMContentLoaded', function() {
+    // Notificações dropdown
+    const bell = document.getElementById('notifications-bell');
+    const dropdown = document.getElementById('notifications-dropdown-content');
+    const notifList = document.getElementById('notifications-list');
+
+    if (bell && dropdown && notifList) {
+        bell.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (dropdown.style.display === 'block') {
+                dropdown.style.display = 'none';
+            } else {
+                dropdown.style.display = 'block';
+                notifList.innerHTML = "Carregando...";
+                fetch('notificacoes.php')
+                    .then(r => r.text())
+                    .then(html => {
+                        notifList.innerHTML = html;
+                    })
+                    .catch(() => notifList.innerHTML = "Erro ao carregar notificações.");
+            }
         });
+        dropdown.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
+        window.addEventListener('click', function() {
+            if (dropdown.style.display === 'block') {
+                dropdown.style.display = 'none';
+            }
+        });
+    }
+});
     </script>
 </body>
 </html>

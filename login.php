@@ -43,7 +43,7 @@ $mysqli->close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Rede Social</title>
+    <title>Login - helveticNDS</title>
     <link rel="stylesheet" href="style.css"> <!-- Importa seu arquivo CSS -->
 </head>
 <body class="global-background"> <!-- Adiciona a classe login-bg para a imagem de fundo -->

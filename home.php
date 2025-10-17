@@ -46,6 +46,35 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['conteudo'])) {
     }
 }
 
+// Favoritar/desfavoritar post
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['favorite_post_id'])) {
+    $post_id = intval($_POST['favorite_post_id']);
+    $user_id = $_SESSION['user_id'];
+    // Verifica se já está favoritado
+    $check = $mysqli->prepare("SELECT 1 FROM favoritos WHERE id_usuario = ? AND id_postagem = ?");
+    $check->bind_param("ii", $user_id, $post_id);
+    $check->execute();
+    $check->store_result();
+    if ($check->num_rows > 0) {
+        // Já favoritado, desfavorita
+        $del = $mysqli->prepare("DELETE FROM favoritos WHERE id_usuario = ? AND id_postagem = ?");
+        $del->bind_param("ii", $user_id, $post_id);
+        $del->execute();
+        $del->close();
+    } else {
+        // Não favoritado, adiciona
+        $add = $mysqli->prepare("INSERT INTO favoritos (id_usuario, id_postagem, data_favorito) VALUES (?, ?, NOW())");
+        $add->bind_param("ii", $user_id, $post_id);
+        $add->execute();
+        $add->close();
+    }
+    $check->close();
+    // Redireciona para evitar repost
+    header("Location: home.php");
+    exit();
+}
+
+// Busca todos os posts
 $sql_select = "SELECT 
                     p.id,
                     p.id_usuario, 
@@ -58,15 +87,25 @@ $sql_select = "SELECT
                 FROM postagens p
                 JOIN usuarios u ON p.id_usuario = u.id
                 ORDER BY p.data_postagem DESC";
-
 $resultado_posts = $mysqli->query($sql_select);
+
+// Busca favoritos do usuário logado
+$favoritos_usuario = [];
+$fav_query = $mysqli->prepare("SELECT id_postagem FROM favoritos WHERE id_usuario = ?");
+$fav_query->bind_param("i", $_SESSION['user_id']);
+$fav_query->execute();
+$fav_result = $fav_query->get_result();
+while ($fav = $fav_result->fetch_assoc()) {
+    $favoritos_usuario[] = $fav['id_postagem'];
+}
+$fav_query->close();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Feed - deepBlue</title>
+    <title>Feed - helveticNDS</title>
     <link rel="stylesheet" href="style.css">
     <!-- Ícones Font Awesome para um visual mais moderno (opcional, mas recomendado) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -81,13 +120,12 @@ $resultado_posts = $mysqli->query($sql_select);
                 <ul class="nav-links">
                     <li><span class="welcome-message">Olá, <?php echo htmlspecialchars($_SESSION['user_name']); ?>!</span></li>
                     <li><a href="profile.php" class="nav-icon-link"><i class="fas fa-user"></i> Meu Perfil</a></li>
-                    <li class="notifications-dropdown">
+                    <li style="position:relative;">
                         <a href="#" id="notifications-bell" class="nav-icon-link">
-                            <i class="fas fa-bell"></i> Notificações <span id="notifications-count" class="notification-badge">0</span>
+                            <i class="fas fa-bell"></i> Notificações <span id="notifications-count" class="notification-badge">!</span>
                         </a>
-                        <div id="notifications-dropdown-content" class="dropdown-content">
-                            <!-- Conteúdo das notificações será carregado aqui -->
-                            <p class="dropdown-empty-message">Nenhuma notificação nova.</p>
+                        <div id="notifications-dropdown-content">
+                            <div id="notifications-list" style="padding:10px 0;text-align:center;color:#888;">Carregando...</div>
                         </div>
                     </li>
                     <li><a href="chat.php" class="nav-icon-link"><i class="fas fa-comment"></i> Chat</a></li>
@@ -130,6 +168,7 @@ $resultado_posts = $mysqli->query($sql_select);
                         <?php while($post = $resultado_posts->fetch_assoc()): ?>
                             <?php
                                 $fotoPerfil = !empty($post['foto_perfil']) ? $post['foto_perfil'] : 'https://via.placeholder.com/32/0095f6/ffffff?text=U';
+                                $is_favorited = in_array($post['id'], $favoritos_usuario);
                             ?>
                             <div class="post-card" id="post-<?php echo $post['id']; ?>">
                                 <div class="post-header">
@@ -152,9 +191,12 @@ $resultado_posts = $mysqli->query($sql_select);
                                         <i class="far fa-heart"></i> Curtir
                                     </button>
                                     <span class="like-count"><?php echo $post['total_curtidas']; ?></span>
-                                    <button class="action-btn favorite-btn" data-post-id="<?php echo $post['id']; ?>">
-                                        <i class="far fa-star"></i> Favoritar
-                                    </button>
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="favorite_post_id" value="<?php echo $post['id']; ?>">
+                                        <button type="submit" class="action-btn favorite-btn<?php echo $is_favorited ? ' active' : ''; ?>">
+                                            <i class="far fa-star"></i> <?php echo $is_favorited ? 'Desfavoritar' : 'Favoritar'; ?>
+                                        </button>
+                                    </form>
                                     <button class="action-btn comment-toggle-btn" data-post-id="<?php echo $post['id']; ?>">
                                         <i class="far fa-comment"></i> Comentar
                                     </button>
@@ -216,8 +258,8 @@ $resultado_posts = $mysqli->query($sql_select);
 
     <script src="script.js"></script>
     <script>
-        // JS para alternar a exibição da seção de comentários
         document.addEventListener('DOMContentLoaded', function() {
+            // JS para alternar a exibição da seção de comentários
             document.querySelectorAll('.comment-toggle-btn').forEach(button => {
                 button.addEventListener('click', function() {
                     const postId = this.dataset.postId;
@@ -227,24 +269,38 @@ $resultado_posts = $mysqli->query($sql_select);
                     }
                 });
             });
-            // Adicione aqui a lógica do botão Curtir via AJAX, etc.
-            // Para as notificações, também pode usar JS para carregar dinamicamente
-            document.getElementById('notifications-bell').addEventListener('click', function(e) {
-                e.preventDefault();
-                const dropdown = document.getElementById('notifications-dropdown-content');
-                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-                // Adicionar lógica para carregar notificações reais aqui
-            });
+            // Notificações dropdown
+            const bell = document.getElementById('notifications-bell');
+            const dropdown = document.getElementById('notifications-dropdown-content');
+            const notifList = document.getElementById('notifications-list');
 
-            // Fechar dropdown de notificação se clicar fora
-            window.addEventListener('click', function(e) {
-                if (!e.target.matches('#notifications-bell') && !e.target.matches('#notifications-bell *')) {
-                    const dropdown = document.getElementById('notifications-dropdown-content');
+            if (bell && dropdown && notifList) {
+                bell.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    // Fecha outros dropdowns se necessário
+                    if (dropdown.style.display === 'block') {
+                        dropdown.style.display = 'none';
+                    } else {
+                        dropdown.style.display = 'block';
+                        notifList.innerHTML = "Carregando...";
+                        fetch('notificacoes.php')
+                            .then(r => r.text())
+                            .then(html => {
+                                notifList.innerHTML = html;
+                            })
+                            .catch(() => notifList.innerHTML = "Erro ao carregar notificações.");
+                    }
+                });
+                dropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+                window.addEventListener('click', function() {
                     if (dropdown.style.display === 'block') {
                         dropdown.style.display = 'none';
                     }
-                }
-            });
+                });
+            }
         });
     </script>
 </body>

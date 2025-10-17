@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat - deepBlue</title>
+    <title>Chat - helveticNDS</title>
     <link rel="stylesheet" href="style.css">
     <!-- Ícones Font Awesome para um visual mais moderno -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -28,12 +28,12 @@ if (!isset($_SESSION['user_id'])) {
                         <li><span class="welcome-message">Olá, <?php echo htmlspecialchars($_SESSION['user_name']); ?>!</span></li>
                         <li><a href="home.php" class="nav-icon-link"><i class="fas fa-home"></i> Feed</a></li>
                         <li><a href="profile.php" class="nav-icon-link"><i class="fas fa-user"></i> Meu Perfil</a></li>
-                        <li class="notifications-dropdown">
+                        <li style="position:relative;">
                             <a href="#" id="notifications-bell" class="nav-icon-link">
-                                <i class="fas fa-bell"></i> Notificações <span id="notifications-count" class="notification-badge">0</span>
+                                <i class="fas fa-bell"></i> Notificações <span id="notifications-count" class="notification-badge">!</span>
                             </a>
-                            <div id="notifications-dropdown-content" class="dropdown-content">
-                                <p class="dropdown-empty-message">Nenhuma notificação nova.</p>
+                            <div id="notifications-dropdown-content">
+                                <div id="notifications-list" style="padding:10px 0;text-align:center;color:#888;">Carregando...</div>
                             </div>
                         </li>
                         <li><a href="chat.php" class="nav-icon-link active"><i class="fas fa-comment"></i> Chat</a></li>
@@ -74,24 +74,38 @@ if (!isset($_SESSION['user_id'])) {
 
     <script src="script.js"></script>
     <script>
-        // JS para toggle de dropdowns ou outras interações (reuso do home.php)
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('notifications-bell').addEventListener('click', function(e) {
-                e.preventDefault();
-                const dropdown = document.getElementById('notifications-dropdown-content');
-                if (dropdown) { // Verifica se o dropdown existe
-                    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-                }
-            });
-            window.addEventListener('click', function(e) {
-                if (!e.target.matches('#notifications-bell') && !e.target.matches('#notifications-bell *')) {
-                    const dropdown = document.getElementById('notifications-dropdown-content');
-                    if (dropdown && dropdown.style.display === 'block') { // Verifica se o dropdown existe
+            // Notificações dropdown
+            const bell = document.getElementById('notifications-bell');
+            const dropdown = document.getElementById('notifications-dropdown-content');
+            const notifList = document.getElementById('notifications-list');
+
+            if (bell && dropdown && notifList) {
+                bell.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (dropdown.style.display === 'block') {
+                        dropdown.style.display = 'none';
+                    } else {
+                        dropdown.style.display = 'block';
+                        notifList.innerHTML = "Carregando...";
+                        fetch('notificacoes.php')
+                            .then(r => r.text())
+                            .then(html => {
+                                notifList.innerHTML = html;
+                            })
+                            .catch(() => notifList.innerHTML = "Erro ao carregar notificações.");
+                    }
+                });
+                dropdown.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+                window.addEventListener('click', function() {
+                    if (dropdown.style.display === 'block') {
                         dropdown.style.display = 'none';
                     }
-                }
-            });
-
+                });
+            }
         });
     </script>
 </body>

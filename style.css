@@ -330,6 +330,22 @@ a:hover {
     color: var(--dark-blue);
 }
 
+#notifications-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 38px;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    min-width: 300px;
+    max-width: 350px;
+    max-height: 320px;
+    overflow-y: auto;
+    z-index: 2000;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.18);
+    padding: 0;
+}
 
 /* --- LAYOUT DO FEED (3 COLUNAS) --- */
 .main-content-wrapper {
